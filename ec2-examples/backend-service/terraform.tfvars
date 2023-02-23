@@ -1,0 +1,10 @@
+aws_region       = "us-west-2"
+core_stack_name  = "ecs-blueprint-infra"
+service_name     = "ecsdemo"
+namespace        = "default"
+desired_count    = 2
+task_cpu         = 256
+task_memory      = 512
+container_name   = "ecsdemo"
+cp_provider_name = "cp-one"
+container_port   = 3000
