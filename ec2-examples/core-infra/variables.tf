@@ -7,7 +7,7 @@ variable "core_stack_name" {
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default = "us-west-2"
+  default     = "us-west-2"
 }
 
 variable "vpc_cidr" {
@@ -32,7 +32,7 @@ variable "enable_nat_gw" {
 variable "instance_type" {
   type        = string
   description = "ECS Container Instance Instance Type"
-  default     = "c5.large"
+  default     = "c6a.2xlarge"
 }
 
 variable "asg_name" {

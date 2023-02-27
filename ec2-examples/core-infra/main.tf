@@ -10,8 +10,10 @@ locals {
   region = var.aws_region
 
   vpc_cidr       = var.vpc_cidr
-  num_of_subnets = min(length(data.aws_availability_zones.available.names), 3)
+  num_of_subnets = min(length(data.aws_availability_zones.available.names), 2)
   azs            = slice(data.aws_availability_zones.available.names, 0, local.num_of_subnets)
+
+  #TODO - Update user data script..
 
   user_data = <<-EOT
     #!/bin/bash
@@ -27,8 +29,8 @@ locals {
   EOT
 
   tags = {
-    Blueprint  = local.name
-    GithubRepo = "github.com/aws-ia/terraform-aws-ecs-blueprints"
+    Blueprint = local.name
+    Team      = "HazelTree"
   }
   task_execution_role_managed_policy_arn = ["arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess",
   "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
@@ -59,7 +61,7 @@ module "ecs" {
       managed_termination_protection = "ENABLED"
 
       managed_scaling = {
-        maximum_scaling_step_size = 1000
+        maximum_scaling_step_size = 100
         minimum_scaling_step_size = 1
         status                    = "ENABLED"
         target_capacity           = 100
@@ -81,13 +83,16 @@ module "vpc" {
   name = local.name
   cidr = local.vpc_cidr
 
-  azs             = local.azs
-  public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k)]
-  private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 10)]
+  azs = local.azs
+  public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 3, k)]
+  private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 3, k + 4)]
 
   enable_nat_gateway   = var.enable_nat_gw
   single_nat_gateway   = true
+
+
   enable_dns_hostnames = true
+  enable_dns_support   = true
 
   # Manage so we can name
   manage_default_network_acl    = true
@@ -186,7 +191,6 @@ data "aws_ami" "ecs_optimized" {
   filter {
     name   = "name"
     values = ["amzn2-ami-ecs-hvm-2.0.20220831-x86_64-ebs"]
-    #ami-0d6963f2a3f0c66e1
   }
   filter {
     name   = "root-device-type"
@@ -217,10 +221,11 @@ module "asg" {
   # Autoscaling group
   name = "${local.name}-asg"
 
-  min_size              = var.min_size
-  max_size              = var.max_size
-  desired_capacity      = var.desired_capacity
-  vpc_zone_identifier   = tolist(data.aws_subnets.private.ids)
+  min_size         = var.min_size
+  max_size         = var.max_size
+  desired_capacity = var.desired_capacity
+  #vpc_zone_identifier   = tolist(data.aws_subnets.private.ids)
+  vpc_zone_identifier   = module.vpc.private_subnets
   protect_from_scale_in = true
 
   # Launch template
@@ -244,8 +249,8 @@ module "asg" {
   }
   iam_role_policies = {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
-    CloudWatchLogsAccess = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
-    GetCIFSSecrets = "arn:aws:iam::581611100341:policy/GetCIFSSecrets"
+    CloudWatchLogsAccess         = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+    GetCIFSSecrets               = "arn:aws:iam::581611100341:policy/GetCIFSSecrets" #Read secrets from Secrets Manager
   }
 
   security_groups = [aws_security_group.ecs_container-instance_sg.id]
