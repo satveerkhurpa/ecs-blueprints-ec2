@@ -20,6 +20,9 @@ locals {
     myValue=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id cifs-creds --query SecretString --output text | jq -r .secureuser)
     echo $myValue > /var/log/echoSecret.txt
 
+    username=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id cifs-creds --query SecretString --output text| jq -r '. | keys[]')
+    password=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id cifs-creds --query SecretString --output text| jq -r '.[]')
+
     EOF
   EOT
 
