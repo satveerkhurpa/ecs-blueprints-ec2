@@ -10,8 +10,9 @@ locals {
     Team      = "HazelTree"
   }
 
-  tag_val_vpc            = var.vpc_tag_value == "" ? var.core_stack_name : var.vpc_tag_value
-  tag_val_private_subnet = var.vpc_tag_value == "" ? "${var.core_stack_name}-private*" : var.vpc_tag_value
+  tag_val_vpc               = var.vpc_tag_value
+  tag_val_private_subnet    = var.private_subnets_tag_value
+  tag_val_private_rt_subnet = var.private_routetable_tag_value
 
 }
 
@@ -41,7 +42,7 @@ data "aws_subnet" "private_cidr" {
 data "aws_route_table" "private" {
   filter {
     name   = "tag:${var.vpc_tag_key}"
-    values = ["${local.tag_val_private_subnet}-us-west-2a"]
+    values = ["${local.tag_val_private_rt_subnet}"]
   }
 }
 
@@ -117,18 +118,18 @@ module "vpc_endpoints" {
     ec2 = {
       service             = "ec2"
       private_dns_enabled = true
-      tags = { Name = "${local.name}-ec2" }
+      tags                = { Name = "${local.name}-ec2" }
     },
     ec2messages = {
       service             = "ec2messages"
       private_dns_enabled = true
-      tags = { Name = "${local.name}-ec2-messages" }
+      tags                = { Name = "${local.name}-ec2-messages" }
 
     },
     kms = {
       service             = "kms"
       private_dns_enabled = true
-      tags = { Name = "${local.name}-kms" }
+      tags                = { Name = "${local.name}-kms" }
     },
   }
 

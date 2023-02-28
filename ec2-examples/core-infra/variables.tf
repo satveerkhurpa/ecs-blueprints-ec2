@@ -9,26 +9,6 @@ variable "aws_region" {
   type        = string
   default     = "us-west-2"
 }
-
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
-  type        = string
-  default     = "10.0.0.0/16"
-}
-
-variable "namespaces" {
-  description = "List of service discovery namespaces for ECS services. Creates a default namespace"
-  type        = list(string)
-  default     = ["default", "myapp"]
-}
-
-variable "enable_nat_gw" {
-  description = "Provision a NAT Gateway in the VPC"
-  type        = bool
-  default     = true
-
-}
-
 variable "instance_type" {
   type        = string
   description = "ECS Container Instance Instance Type"
@@ -85,4 +65,33 @@ variable "capcitiy-provider_name" {
   type        = string
   description = "Name of capacity provider"
   default     = "capacity-provide-blue-print"
+}
+
+####### VPC details
+
+variable "vpc_tag_key" {
+  description = "The tag key of the VPC and subnets"
+  type        = string
+  default     = "Name"
+}
+
+variable "vpc_tag_value" {
+  # if left blank then {core_stack_name} will be used
+  description = "The tag value of the VPC and subnets"
+  type        = string
+  default     = ""
+}
+
+variable "public_subnets_tag_value" {
+  # if left blank then {core_stack_name}-public- will be used
+  description = "The value tag of the public subnets"
+  type        = string
+  default     = ""
+}
+
+variable "private_subnets_tag_value" {
+  # if left blank then {core_stack_name}-private- will be used
+  description = "The value tag of the private subnets"
+  type        = string
+  default     = ""
 }

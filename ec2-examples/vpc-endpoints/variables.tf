@@ -22,7 +22,18 @@ variable "vpc_tag_value" {
   default     = ""
 }
 
-# variable "repository_owner" {
-#   description = "The name of the owner of the forked Github repository"
-#   type        = string
-# }
+
+variable "private_subnets_tag_value" {
+  # if left blank then {core_stack_name}-private- will be used
+  description = "The value tag of the private subnets"
+  type        = string
+  default     = ""
+}
+
+
+variable "private_routetable_tag_value" {
+  # if left blank then {core_stack_name}-private- will be used
+  description = "The value tag of the private subnet routetable from one AZ"
+  type        = string
+  default     = ""
+}

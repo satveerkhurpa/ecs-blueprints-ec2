@@ -9,12 +9,7 @@ locals {
   name   = var.core_stack_name
   region = var.aws_region
 
-  vpc_cidr       = var.vpc_cidr
-  num_of_subnets = min(length(data.aws_availability_zones.available.names), 2)
-  azs            = slice(data.aws_availability_zones.available.names, 0, local.num_of_subnets)
-
   #TODO - Update user data script..
-
   user_data = <<-EOT
     #!/bin/bash
     cat <<'EOF' >> /etc/ecs/ecs.config
@@ -32,8 +27,13 @@ locals {
     Blueprint = local.name
     Team      = "HazelTree"
   }
+
   task_execution_role_managed_policy_arn = ["arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess",
   "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"]
+
+  #Local variables to lookup the vpc details.
+  tag_val_vpc            = var.vpc_tag_value == "" ? var.core_stack_name : var.vpc_tag_value
+  tag_val_private_subnet = var.private_subnets_tag_value == "" ? "${var.core_stack_name}-private-" : var.private_subnets_tag_value
 }
 
 ################################################################################
@@ -72,56 +72,11 @@ module "ecs" {
   tags = local.tags
 }
 
-################################################################################
-# Supporting Resources
-################################################################################
-
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 3.0"
-
-  name = local.name
-  cidr = local.vpc_cidr
-
-  azs = local.azs
-  public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 3, k)]
-  private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 3, k + 4)]
-
-  enable_nat_gateway   = var.enable_nat_gw
-  single_nat_gateway   = true
-
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  # Manage so we can name
-  manage_default_network_acl    = true
-  default_network_acl_tags      = { Name = "${local.name}-default" }
-  manage_default_route_table    = true
-  default_route_table_tags      = { Name = "${local.name}-default" }
-  manage_default_security_group = true
-  default_security_group_tags   = { Name = "${local.name}-default" }
-
-  tags = local.tags
-}
-
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/aws/ecs/${local.name}"
   retention_in_days = 7
 
   tags = local.tags
-}
-
-################################################################################
-# Service discovery namespaces
-################################################################################
-
-resource "aws_service_discovery_private_dns_namespace" "sd_namespaces" {
-  for_each = toset(var.namespaces)
-
-  name        = "${each.key}.${module.ecs.cluster_name}.local"
-  description = "service discovery namespace.clustername.local"
-  vpc         = module.vpc.vpc_id
 }
 
 ################################################################################
@@ -152,20 +107,44 @@ resource "aws_iam_policy_attachment" "execution" {
   policy_arn = local.task_execution_role_managed_policy_arn[count.index]
 }
 
+
+###################
+# VPC Data sources
+###################
+
+data "aws_vpc" "vpc" {
+  filter {
+    name   = "tag:${var.vpc_tag_key}"
+    values = [local.tag_val_vpc]
+  }
+}
+
+data "aws_subnets" "private" {
+  filter {
+    name   = "tag:${var.vpc_tag_key}"
+    values = ["${local.tag_val_private_subnet}*"]
+  }
+}
+
+data "aws_subnet" "private_cidr" {
+  for_each = toset(data.aws_subnets.private.ids)
+  id       = each.value
+}
+
 ################################################################################
 # Launch Template Security Group
 ################################################################################
 resource "aws_security_group" "ecs_container-instance_sg" {
   name        = "container_instance_sg"
   description = "Allow http inbound traffic"
-  vpc_id      = module.vpc.vpc_id
+  vpc_id      = data.aws_vpc.vpc.id
 
   ingress {
     description = "HTTP from VPC"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = [module.vpc.vpc_cidr_block]
+    cidr_blocks = [data.aws_vpc.vpc.cidr_block]
   }
 
   egress {
@@ -203,29 +182,15 @@ data "aws_ami" "ecs_optimized" {
   }
 }
 
-#Fetching Private Subnets
-data "aws_subnets" "private" {
-  filter {
-    name   = "vpc-id"
-    values = [module.vpc.vpc_id]
-  }
-
-  tags = {
-    Name = "ecs-blueprint-infra-private-*"
-  }
-}
-
 module "asg" {
-  source     = "terraform-aws-modules/autoscaling/aws"
-  depends_on = [module.vpc]
+  source = "terraform-aws-modules/autoscaling/aws"
   # Autoscaling group
   name = "${local.name}-asg"
 
-  min_size         = var.min_size
-  max_size         = var.max_size
-  desired_capacity = var.desired_capacity
-  #vpc_zone_identifier   = tolist(data.aws_subnets.private.ids)
-  vpc_zone_identifier   = module.vpc.private_subnets
+  min_size              = var.min_size
+  max_size              = var.max_size
+  desired_capacity      = var.desired_capacity
+  vpc_zone_identifier   = data.aws_subnets.private.ids
   protect_from_scale_in = true
 
   # Launch template
@@ -250,7 +215,7 @@ module "asg" {
   iam_role_policies = {
     AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role",
     CloudWatchLogsAccess         = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
-    GetCIFSSecrets               = "arn:aws:iam::581611100341:policy/GetCIFSSecrets" #Read secrets from Secrets Manager
+    GetCIFSSecrets               = "arn:aws:iam::506556589049:policy/GetCIFSSecrets" #Read secrets from Secrets Manager
   }
 
   security_groups = [aws_security_group.ecs_container-instance_sg.id]

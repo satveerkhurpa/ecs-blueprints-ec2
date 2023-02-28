@@ -1,26 +1,3 @@
-# variable "repository_owner" {
-#   description = "The name of the owner of the Github repository"
-#   type        = string
-# }
-
-# variable "repository_name" {
-#   description = "The name of the Github repository"
-#   type        = string
-#   default     = "ecs-blueprints"
-# }
-
-# variable "repository_branch" {
-#   description = "The name of branch the Github repository, which is going to trigger a new CodePipeline excecution"
-#   type        = string
-#   default     = "main"
-# }
-
-# variable "github_token_secret_name" {
-#   description = "The name of branch the Github repository, which is going to trigger a new CodePipeline excecution"
-#   type        = string
-#   default     = "ecs-github-token"
-# }
-
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -95,13 +72,6 @@ variable "vpc_tag_value" {
   default     = ""
 }
 
-variable "public_subnets_tag_value" {
-  # if left blank then {core_stack_name}-public- will be used
-  description = "The value tag of the public subnets"
-  type        = string
-  default     = ""
-}
-
 variable "private_subnets_tag_value" {
   # if left blank then {core_stack_name}-private- will be used
   description = "The value tag of the private subnets"
@@ -116,15 +86,14 @@ variable "ecs_cluster_name" {
   default     = ""
 }
 
-variable "namespace" {
-  description = "The service discovery namespace"
-  type        = string
-  default     = "default"
-}
-
 variable "ecs_task_execution_role_name" {
   # if left blank then {core_stack_name}-execution will be used
   description = "The ARN of the task execution role"
   type        = string
   default     = ""
+}
+
+variable "container_image" {
+  description = "Container image from ECR/Container registry"
+  type        = string
 }
