@@ -9,21 +9,22 @@ locals {
   name   = var.core_stack_name
   region = var.aws_region
 
-  #TODO - Update user data script..
-  user_data = <<-EOT
+ user_data = <<-EOT
     #!/bin/bash
     cat <<'EOF' >> /etc/ecs/ecs.config
     ECS_CLUSTER=${local.name}
     ECS_LOGLEVEL=debug
-    yum update -y
-    yum install -y jq
+    EOF
+
+    sudo yum update -y
+    sudo yum install -y jq aws-cli
     myValue=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id cifs-creds --query SecretString --output text | jq -r .secureuser)
     echo $myValue > /var/log/echoSecret.txt
 
     username=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id cifs-creds --query SecretString --output text| jq -r '. | keys[]')
     password=$(aws secretsmanager get-secret-value --region us-west-2 --secret-id cifs-creds --query SecretString --output text| jq -r '.[]')
 
-    EOF
+    
   EOT
 
   tags = {
@@ -151,9 +152,16 @@ resource "aws_security_group" "ecs_container-instance_sg" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
